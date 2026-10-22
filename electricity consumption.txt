@@ -10,7 +10,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.callbacks import EarlyStopping
 
-st.set_page_config(page_title="Electricity Forecast", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="WattWise", page_icon="⚡", layout="wide")
 
 
 @st.cache_data
@@ -62,7 +62,35 @@ def train_model():
     return model, scaler, scaled
 
 
-st.title("⚡ Electricity Consumption and Price Forecasting")
+if "started" not in st.session_state:
+    st.session_state.started = False
+
+if not st.session_state.started:
+    st.markdown(
+        """
+        <div style="text-align:center; padding:80px 20px 40px 20px;">
+            <div style="font-size:75px; margin-bottom:10px;">⚡</div>
+            <h1 style="font-size:60px; font-weight:800; margin:0;">WATTWISE</h1>
+            <h2 style="font-size:28px; font-weight:500; margin-top:15px;">
+                Smart Electricity Consumption & Bill Forecasting
+            </h2>
+            <p style="font-size:18px; margin-top:25px;">
+                Predict electricity consumption, estimate monthly bills,
+                and visualize future energy usage using AI-powered forecasting.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _, mid, _ = st.columns([1, 2, 1])
+    with mid:
+        if st.button("🚀 Start Forecasting", type="primary", use_container_width=True):
+            st.session_state.started = True
+            st.rerun()
+    st.stop()
+
+
+st.title("⚡ WattWise")
 st.write("Enter your electricity details to generate the forecast and estimated monthly bill.")
 
 st.sidebar.header("Electricity Input")
@@ -106,8 +134,22 @@ else:
 
 st.divider()
 
+st.subheader("Your Electricity Details")
+a, b, c, d = st.columns(4)
+a.metric("Consumer", consumer_type)
+b.metric("Forecast Month", selected_month)
+c.metric("Daily Consumption", f"{daily_consumption:.1f} kWh")
+d.metric("Unit Cost", f"₹{unit_cost:.2f}")
+st.divider()
+
 if st.button("🚀 Generate Electricity Forecast", type="primary", use_container_width=True):
+    status = st.empty()
+    bar = st.progress(0)
+    status.info("Processing... Training prediction model.")
+    bar.progress(20)
     model, scaler, scaled = train_model()
+    bar.progress(55)
+    status.info("Processing... Generating consumption prediction.")
 
     LOOKBACK = 30
     seq = scaled[-LOOKBACK:].reshape(1, LOOKBACK, 1)
@@ -136,6 +178,8 @@ if st.button("🚀 Generate Electricity Forecast", type="primary", use_container
 
     # Stretch the 30 day forecast to 28, 29, 30 or 31 days
     preds = np.interp(np.linspace(0, 29, n_days), np.arange(30), preds)
+    bar.progress(85)
+    status.info("Processing... Calculating electricity bill.")
 
     daily_bill = preds * unit_cost
     total_consumption = preds.sum()
@@ -148,6 +192,9 @@ if st.button("🚀 Generate Electricity Forecast", type="primary", use_container
         "Unit Cost (₹/kWh)": unit_cost,
         "Estimated Daily Bill (₹)": np.round(daily_bill, 2),
     })
+
+    bar.progress(100)
+    status.success("Forecast generated successfully!")
 
     st.divider()
     st.subheader(f"{selected_month} 2026 Electricity Forecast")
@@ -166,6 +213,16 @@ if st.button("🚀 Generate Electricity Forecast", type="primary", use_container
 
     st.subheader("Daily Electricity Bill")
     st.line_chart(forecast_df.set_index("Date")["Estimated Daily Bill (₹)"])
+
+    st.divider()
+    st.subheader("Monthly Bill Summary")
+    st.write(f"Total Predicted Consumption: {total_consumption:,.2f} kWh")
+    st.write(f"Fixed Electricity Price: ₹{unit_cost:.2f} / kWh")
+    st.write(f"Estimated Monthly Bill: ₹{total_bill:,.2f}")
+    st.success(
+        f"Your estimated electricity bill for {selected_month} 2026 "
+        f"is ₹{total_bill:,.2f}"
+    )
 '''
 
 
